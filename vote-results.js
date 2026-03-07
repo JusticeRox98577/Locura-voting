@@ -35,6 +35,12 @@ async function loadHistory() {
   return data || [];
 }
 
+async function deleteHistoryRow(id) {
+  const { data, error } = await supabase.rpc("delete_vote_round_history", { p_id: id });
+  if (error) throw error;
+  return data;
+}
+
 function downloadJson(filename, payload) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -72,7 +78,10 @@ async function init() {
           ${rows.length ? rows.map((r) => `
             <div class="tallyCard">
               <div><strong>${r.round_key}</strong> - ${r.closed_mode} - ${new Date(r.closed_at).toLocaleString()}</div>
-              <button class="primary" data-id="${r.id}">Download JSON</button>
+              <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="primary" data-download="${r.id}">Download JSON</button>
+                <button class="danger" data-delete="${r.id}">Delete</button>
+              </div>
             </div>
           `).join("") : "<p>No files yet.</p>"}
         </div>
@@ -80,9 +89,10 @@ async function init() {
     `);
 
     rows.forEach((r) => {
-      const btn = document.querySelector(`button[data-id="${r.id}"]`);
-      if (!btn) return;
-      btn.onclick = () => {
+      const dl = document.querySelector(`button[data-download="${r.id}"]`);
+      const del = document.querySelector(`button[data-delete="${r.id}"]`);
+
+      if (dl) dl.onclick = () => {
         const payload = {
           id: r.id,
           round_key: r.round_key,
@@ -94,6 +104,17 @@ async function init() {
         };
         const stamp = String(r.closed_at || "").replace(/[.:]/g, "-");
         downloadJson(`locura-round-${r.round_key}-${stamp}.json`, payload);
+      };
+
+      if (del) del.onclick = async () => {
+        if (!confirm("Delete this saved round file?")) return;
+        try {
+          const out = await deleteHistoryRow(r.id);
+          if (!out?.ok) return alert("Delete failed: " + (out?.error || "unknown"));
+          init();
+        } catch (e) {
+          alert("Delete failed: " + (e?.message || String(e)));
+        }
       };
     });
   } catch (e) {
