@@ -39,7 +39,12 @@ async function isTeacherOrAdmin(user) {
 }
 
 async function loadWinners() {
-  const { data, error } = await supabase.from("results").select("winners").eq("id", "current").single();
+  const { data, error } = await supabase
+    .from("results")
+    .select("winners")
+    .eq("id", "current")
+    .limit(1)
+    .maybeSingle();
   if (error) throw error;
   return data?.winners || {};
 }
