@@ -141,6 +141,7 @@ function renderApp() {
     <div class="container">
       <h1>Voting Admin</h1>
       <p><a href="/">Open student voting page</a></p>
+      <p><a href="/downloads">Download saved round files</a></p>
       <button id="signout" class="danger">Sign out</button>
 
       <div class="card">
@@ -223,7 +224,7 @@ function renderApp() {
       if (!out?.ok) return alert("Close failed: " + (out?.error || "unknown"));
       state.winners = await loadWinners();
       state.currentRound = await loadCurrentRound();
-      state.tally = await loadTally().catch(() => []);
+      state.tally = [];
       syncRoundSelection();
       alert("Round closed and results saved.");
       renderApp();
@@ -237,7 +238,7 @@ function renderApp() {
       const out = await closeRound(false);
       if (!out?.ok) return alert("Close failed: " + (out?.error || "unknown"));
       state.currentRound = await loadCurrentRound();
-      state.tally = await loadTally().catch(() => []);
+      state.tally = [];
       alert("Round closed.");
       renderApp();
     } catch (e) {

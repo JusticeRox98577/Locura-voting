@@ -1,5 +1,7 @@
 {
   "rewrites": [
+    { "source": "/downloads", "destination": "/vote-results.html" },
+    { "source": "/downloads/(.*)", "destination": "/vote-results.html" },
     { "source": "/admin", "destination": "/admin.html" },
     { "source": "/admin/(.*)", "destination": "/admin.html" }
   ]
