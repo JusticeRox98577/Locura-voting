@@ -93,3 +93,36 @@ button{
   opacity:.75;
   font-size:14px;
 }
+
+.tallyCard{
+  background:rgba(255,255,255,.03);
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  padding:12px;
+  margin-top:10px;
+}
+
+.tallyLine{
+  margin-top:8px;
+}
+
+.barTrack{
+  width:100%;
+  height:10px;
+  border-radius:999px;
+  background:rgba(255,255,255,.12);
+  overflow:hidden;
+  margin-top:6px;
+}
+
+.barFill{
+  height:100%;
+}
+
+.barA{
+  background:#2f6fff;
+}
+
+.barB{
+  background:#ff4d5a;
+}

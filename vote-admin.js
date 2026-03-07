@@ -82,6 +82,33 @@ function labelForMatch(m) {
   return `${m.id}: ${songLabel(resolved.aKey)} vs ${songLabel(resolved.bKey)}`;
 }
 
+function renderTallyRows() {
+  if (!state.tally.length) return "<p>No votes yet.</p>";
+
+  return state.tally.map((r) => {
+    const ready = getReadyMatchesForRound(state.currentRound?.round_key || "", state.winners).find((m) => m.id === r.match_id);
+    const aName = ready?.aKey ? songLabel(ready.aKey) : "Song A";
+    const bName = ready?.bKey ? songLabel(ready.bKey) : "Song B";
+    const total = Number(r.total || 0);
+    const aPct = total > 0 ? Math.round((Number(r.votes_a || 0) / total) * 100) : 0;
+    const bPct = total > 0 ? Math.round((Number(r.votes_b || 0) / total) * 100) : 0;
+
+    return `
+      <div class="tallyCard">
+        <div><strong>${r.match_id}</strong> <span class="small">(${total} votes)</span></div>
+        <div class="tallyLine">
+          <div class="small">${aName} - ${r.votes_a} (${aPct}%)</div>
+          <div class="barTrack"><div class="barFill barA" style="width:${aPct}%"></div></div>
+        </div>
+        <div class="tallyLine">
+          <div class="small">${bName} - ${r.votes_b} (${bPct}%)</div>
+          <div class="barTrack"><div class="barFill barB" style="width:${bPct}%"></div></div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
 function syncRoundSelection() {
   const ready = getReadyMatchesForRound(state.selectedRound, state.winners);
   state.selectedMatches = new Set(ready.map((m) => m.id));
@@ -148,7 +175,7 @@ function renderApp() {
         <h3>Live Tally</h3>
         <button id="refreshTally">Refresh Tally</button>
         <div id="tallyWrap">
-          ${state.tally.length ? state.tally.map((r) => `<p><strong>${r.match_id}</strong> - A: ${r.votes_a}, B: ${r.votes_b}, Total: ${r.total}</p>`).join("") : "<p>No votes yet.</p>"}
+          ${renderTallyRows()}
         </div>
       </div>
     </div>
