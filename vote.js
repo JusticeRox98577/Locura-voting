@@ -35,13 +35,20 @@ async function castVote(matchId, choice) {
   return data;
 }
 
+async function loadPublicTally() {
+  const { data, error } = await supabase.rpc("get_public_vote_tally");
+  if (error) throw error;
+  return data || [];
+}
+
 function matchById(id) {
   return MATCHES.find((m) => m.id === id) || null;
 }
 
 async function draw() {
   try {
-    const [round, winners] = await Promise.all([loadCurrentRound(), loadWinners()]);
+    const [round, winners, tallyRows] = await Promise.all([loadCurrentRound(), loadWinners(), loadPublicTally().catch(() => [])]);
+    const tallyByMatch = Object.fromEntries(tallyRows.map((r) => [r.match_id, r]));
 
     if (!round || round.status !== "open") {
       render(`
@@ -71,12 +78,24 @@ async function draw() {
 
     for (const m of matches) {
       const disabled = voted.has(m.id) ? "disabled" : "";
+      const t = tallyByMatch[m.id] || { votes_a: 0, votes_b: 0, total: 0 };
+      const total = Number(t.total || 0);
+      const aPct = total > 0 ? Math.round((Number(t.votes_a || 0) / total) * 100) : 0;
+      const bPct = total > 0 ? Math.round((Number(t.votes_b || 0) / total) * 100) : 0;
       html += `
         <div class="card">
           <h3>${m.id}</h3>
           <div class="match">
             <button class="option" data-match="${m.id}" data-slot="A" ${disabled}>${songLabel(m.aKey)}</button>
             <button class="option" data-match="${m.id}" data-slot="B" ${disabled}>${songLabel(m.bKey)}</button>
+          </div>
+          <div class="tallyLine">
+            <div class="small">${songLabel(m.aKey)} - ${t.votes_a} (${aPct}%)</div>
+            <div class="barTrack"><div class="barFill barA" style="width:${aPct}%"></div></div>
+          </div>
+          <div class="tallyLine">
+            <div class="small">${songLabel(m.bKey)} - ${t.votes_b} (${bPct}%)</div>
+            <div class="barTrack"><div class="barFill barB" style="width:${bPct}%"></div></div>
           </div>
         </div>
       `;
