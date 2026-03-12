@@ -7,9 +7,31 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const root = document.querySelector("#app");
 const voted = new Set();
+let currentUser = null;
 
 function render(html) {
   root.innerHTML = html;
+}
+
+async function getUser() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw error;
+  return data.user ?? null;
+}
+
+async function signIn() {
+  const redirectTo = new URL(window.location.href);
+  redirectTo.hash = "";
+  await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: { redirectTo: redirectTo.toString() }
+  });
+}
+
+async function signOut() {
+  await supabase.auth.signOut();
+  currentUser = null;
+  draw();
 }
 
 async function loadWinners() {
@@ -47,6 +69,7 @@ function matchById(id) {
 
 async function draw() {
   try {
+    currentUser = await getUser();
     const [round, winners, tallyRows] = await Promise.all([loadCurrentRound(), loadWinners(), loadPublicTally().catch(() => [])]);
     const tallyByMatch = Object.fromEntries(tallyRows.map((r) => [r.match_id, r]));
 
@@ -72,7 +95,11 @@ async function draw() {
         <h1>Locura Voting</h1>
         <div class="card">
           <p><strong>Current round:</strong> ${round.round_key}</p>
-          <p class="small">One vote per match per IP address.</p>
+          <p class="small">One vote per match per signed-in student account.</p>
+          <p class="small">${currentUser ? `Signed in as ${currentUser.email}` : "Sign in with Google to vote."}</p>
+          <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+            <button class="primary" id="authBtn">${currentUser ? "Sign out" : "Sign in with Google"}</button>
+          </div>
         </div>
     `;
 
@@ -104,17 +131,34 @@ async function draw() {
     html += `</div>`;
     render(html);
 
+    document.querySelector("#authBtn").onclick = async () => {
+      try {
+        if (currentUser) await signOut();
+        else await signIn();
+      } catch (e) {
+        alert("Auth failed: " + (e?.message || String(e)));
+      }
+    };
+
     document.querySelectorAll(".option").forEach((btn) => {
       btn.onclick = async () => {
+        if (!currentUser) {
+          alert("Sign in with Google before voting.");
+          return;
+        }
         const matchId = btn.dataset.match;
         const choice = btn.dataset.slot;
         try {
           const out = await castVote(matchId, choice);
           if (!out?.ok) {
             if (out?.error === "already_voted") {
-              alert("Already voted for this match from this IP.");
+              alert("You already voted for this match.");
               voted.add(matchId);
               draw();
+              return;
+            }
+            if (out?.error === "auth_required") {
+              alert("Sign in with Google before voting.");
               return;
             }
             alert("Vote failed: " + (out?.error || "unknown"));
