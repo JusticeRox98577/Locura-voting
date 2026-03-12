@@ -8,15 +8,16 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const root = document.querySelector("#app");
 const voted = new Set();
 let currentUser = null;
+let authBootstrapped = false;
 
 function render(html) {
   root.innerHTML = html;
 }
 
-async function getUser() {
-  const { data, error } = await supabase.auth.getUser();
+async function loadCurrentUser() {
+  const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  return data.user ?? null;
+  return data.session?.user ?? null;
 }
 
 async function signIn() {
@@ -69,7 +70,7 @@ function matchById(id) {
 
 async function draw() {
   try {
-    currentUser = await getUser();
+    currentUser = await loadCurrentUser();
     const [round, winners, tallyRows] = await Promise.all([loadCurrentRound(), loadWinners(), loadPublicTally().catch(() => [])]);
     const tallyByMatch = Object.fromEntries(tallyRows.map((r) => [r.match_id, r]));
 
@@ -180,6 +181,13 @@ async function draw() {
       </div>
     `);
   }
+}
+
+if (!authBootstrapped) {
+  authBootstrapped = true;
+  supabase.auth.onAuthStateChange(() => {
+    draw();
+  });
 }
 
 draw();
