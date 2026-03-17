@@ -64,6 +64,12 @@ async function loadPublicTally() {
   return data || [];
 }
 
+async function loadMyVotedMatches() {
+  const { data, error } = await supabase.rpc("get_current_user_vote_matches");
+  if (error) throw error;
+  return new Set((data || []).map((row) => row.match_id));
+}
+
 function matchById(id) {
   return MATCHES.find((m) => m.id === id) || null;
 }
@@ -71,7 +77,14 @@ function matchById(id) {
 async function draw() {
   try {
     currentUser = await loadCurrentUser();
-    const [round, winners, tallyRows] = await Promise.all([loadCurrentRound(), loadWinners(), loadPublicTally().catch(() => [])]);
+    const [round, winners, tallyRows, myVotes] = await Promise.all([
+      loadCurrentRound(),
+      loadWinners(),
+      loadPublicTally().catch(() => []),
+      currentUser ? loadMyVotedMatches().catch(() => new Set()) : Promise.resolve(new Set())
+    ]);
+    voted.clear();
+    for (const matchId of myVotes) voted.add(matchId);
     const tallyByMatch = Object.fromEntries(tallyRows.map((r) => [r.match_id, r]));
 
     if (!round || round.status !== "open") {
@@ -110,6 +123,7 @@ async function draw() {
       const total = Number(t.total || 0);
       const aPct = total > 0 ? Math.round((Number(t.votes_a || 0) / total) * 100) : 0;
       const bPct = total > 0 ? Math.round((Number(t.votes_b || 0) / total) * 100) : 0;
+      const showTally = voted.has(m.id);
       html += `
         <div class="card">
           <h3>${m.id}</h3>
@@ -117,14 +131,16 @@ async function draw() {
             <button class="option" data-match="${m.id}" data-slot="A" ${disabled}>${songLabel(m.aKey)}</button>
             <button class="option" data-match="${m.id}" data-slot="B" ${disabled}>${songLabel(m.bKey)}</button>
           </div>
-          <div class="tallyLine">
-            <div class="small">${songLabel(m.aKey)} - ${t.votes_a} (${aPct}%)</div>
-            <div class="barTrack"><div class="barFill barA" style="width:${aPct}%"></div></div>
-          </div>
-          <div class="tallyLine">
-            <div class="small">${songLabel(m.bKey)} - ${t.votes_b} (${bPct}%)</div>
-            <div class="barTrack"><div class="barFill barB" style="width:${bPct}%"></div></div>
-          </div>
+          ${showTally ? `
+            <div class="tallyLine">
+              <div class="small">${songLabel(m.aKey)} - ${t.votes_a} (${aPct}%)</div>
+              <div class="barTrack"><div class="barFill barA" style="width:${aPct}%"></div></div>
+            </div>
+            <div class="tallyLine">
+              <div class="small">${songLabel(m.bKey)} - ${t.votes_b} (${bPct}%)</div>
+              <div class="barTrack"><div class="barFill barB" style="width:${bPct}%"></div></div>
+            </div>
+          ` : `<div class="small" style="margin-top:12px;">Vote on this matchup to reveal the live score.</div>`}
         </div>
       `;
     }
